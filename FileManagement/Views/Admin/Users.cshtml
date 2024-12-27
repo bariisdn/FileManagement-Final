@@ -1,0 +1,287 @@
+@model IEnumerable<FileManagement.ViewModels.UsersListViewModel>
+@{
+    Layout = "_LayoutAdmin";
+}
+
+<h2>Kullanıcı Yönetimi</h2>
+
+<div class="mb-3">
+    <input type="text" id="searchBox" class="form-control" placeholder="Kullanıcı Ara..." />
+</div>
+<a class="btn btn-primary mb-3" href="javascript:void(0)" id="addUserBtn">Yeni Kullanıcı Ekle</a>
+
+<table class="table table-striped">
+    <thead>
+    <tr>
+        <th>Id</th>
+        <th>Email</th>
+        <th>Kullanıcı Adı</th>
+        <th>Yüklenen Dosya Sayısı</th>
+        <th>Rol</th>
+        <th>Oluşturulma Tarihi</th>
+        <th>İşlemler</th>
+    </tr>
+    </thead>
+    <tbody id="userTableBody">
+    @foreach (var user in Model)
+    {
+        <tr>
+            <td>@user.Id</td>
+            <td>@user.Email</td>
+            <td>@user.Username</td>
+            <td>@user.FileCount</td>
+            <td>@user.Role</td>
+            <td>@user.CreatedOn.ToString("yyyy-MM-dd")</td>
+            <td>
+                <a class="btn btn-warning btn-sm" href="javascript:void(0)" onclick="openEditModal(@user.Id)">Düzenle</a>
+                <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal"
+                        data-user-id="@user.Id" data-user-name="@user.Username">
+                    Sil
+                </button>
+            </td>
+        </tr>
+    }
+    </tbody>
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteModalLabel">Kullanıcı Sil</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong id="deleteUserName"></strong> adlı kullanıcıyı silmek istediğinize emin misiniz?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Sil</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Modal HTML -->
+    <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="userModalLabel">Kullanıcı İşlemi</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="userForm">
+                        <input type="hidden" id="userId" />
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Kullanıcı Adı</label>
+                            <input type="text" id="username" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" id="email" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Şifre</label>
+                            <input type="password" id="password" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">Şifre Doğrulama</label>
+                            <input type="password" id="confirmPassword" class="form-control" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Rol</label>
+                            <select id="role" class="form-select">
+                                <option value="User">User</option>
+                                <option value="Admin">Admin</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                    <button type="button" class="btn btn-primary" id="saveUserBtn">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</table>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const searchBox = document.getElementById("searchBox");
+            const userTableBody = document.getElementById("userTableBody");
+            const userModal = new bootstrap.Modal(document.getElementById("userModal"));
+            const saveUserBtn = document.getElementById("saveUserBtn");
+            const userForm = document.getElementById("userForm");
+
+            const deleteModal = new bootstrap.Modal(document.getElementById("deleteModal"));
+            const deleteUserNameElement = document.getElementById("deleteUserName");
+            const confirmDeleteBtn = document.getElementById("confirmDeleteBtn");
+            let userIdToDelete = null;
+
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl("/userHub")
+                .build();
+
+            connection.start()
+                .then(() => {
+                    console.log("Bağlantı kuruldu.");
+
+                    // Kullanıcı güncellendi olayını dinleme
+                    connection.on("UserUpdated", (userId, newRole) => {
+                        // Kullanıcı güncellendiği bilgisi geldiğinde yapılacak işlemler
+                        if (userId === myUserId) {
+                            // Kendi profil bilgileri güncellendiğinde UI'ı güncelle
+                            updateUserProfile(newRole);
+                        } else {
+                            // Başka bir kullanıcının rolü güncellendiğinde bildirim göster
+                            showNotification(`Kullanıcı ${userId} rolü ${newRole} olarak güncellendi.`);
+                        }
+                    });
+                })
+                .catch(err => console.error(err));
+            // Silme butonları için event listener
+            userTableBody.addEventListener("click", (event) => {
+                const button = event.target.closest(".btn-danger");
+                if (button) {
+                    userIdToDelete = button.getAttribute("data-user-id");
+                    const userName = button.getAttribute("data-user-name");
+                    deleteUserNameElement.textContent = userName;
+                    deleteModal.show();
+                }
+            });
+
+            // Silme işlemini onaylama
+            confirmDeleteBtn.addEventListener("click", () => {
+                if (!userIdToDelete) return;
+                fetch(`/Admin/DeleteUser/${userIdToDelete}`, { method: "DELETE" })
+                    .then(response => response.ok ? response.json() : Promise.reject("Hata!"))
+                    .then(data => {
+                        alert(data.message);
+                        const userRow = document.getElementById(`userRow-${userIdToDelete}`);
+                        if (userRow) userRow.remove();
+                        deleteModal.hide();
+                    })
+                    .catch(error => {
+                        console.error("Silme işlemi sırasında hata oluştu:", error);
+                        alert("Kullanıcı silinirken bir hata oluştu.");
+                    });
+            });
+           
+            // Yeni kullanıcı ekleme modalını açma
+            document.getElementById("addUserBtn").addEventListener("click", () => {
+                // Formu sıfırlayıp modalı açıyoruz
+                userForm.reset();
+                document.getElementById("userId").value = "";
+                userModal.show();
+            });
+
+            // Düzenleme işlemi için modal açma
+            window.openEditModal = (userId) => {
+                // Kullanıcı bilgilerini çekip formu dolduruyoruz
+                fetch(`/Admin/EditUser/${userId}`)
+                    .then(response => response.json())
+                    .then(user => {
+                        document.getElementById("userId").value = user.id;
+                        document.getElementById("username").value = user.username;
+                        document.getElementById("email").value = user.email;
+                        document.getElementById("role").value = user.role;
+                        userModal.show();
+                    })
+                    .catch(error => console.error("Hata:", error));
+            };
+
+            // Kullanıcı kaydetme
+            saveUserBtn.addEventListener("click", () => {
+                const userId = document.getElementById("userId").value;
+                const username = document.getElementById("username").value;
+                const email = document.getElementById("email").value;
+                const password = document.getElementById("password").value;
+                const confirmPassword = document.getElementById("confirmPassword").value;
+                const role = document.getElementById("role").value;
+
+                const url = userId ? `/Admin/EditUser` : `/Admin/AddUser`;
+                const method = userId ? "PUT" : "POST";
+                const data = {
+                    id: userId,
+                    username: username,
+                    email: email,
+                    password: password,
+                    confirmPassword: confirmPassword,
+                    role: role
+                };
+
+                fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        alert(data.message);
+                        userModal.hide();
+                        searchUsers(); // Listeyi güncelle
+                    })
+                    .catch(error => {
+                        console.error("Hata:", error);
+                        alert("Bir hata oluştu.");
+                    });
+            });
+
+            // Kullanıcı arama ve tabloyu render etme
+            searchBox.addEventListener("input", debounce(searchUsers, 300));
+
+            function searchUsers() {
+                const query = searchBox.value.trim();
+
+                fetch(`/Admin/SearchUsers?query=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log("API'den dönen veri:", data);
+                        renderUserTable(data);
+                    })
+                    .catch(error => console.error("Arama sırasında hata oluştu:", error));
+            }
+
+            function renderUserTable(data) {
+                // Kullanıcılar data.$values içerisinde bulunuyor, bu nedenle veriye oradan erişin
+                const users = data.$values;
+
+                if (!Array.isArray(users)) {
+                    console.error("Beklenen bir dizi ancak başka bir formatta veri alındı:", users);
+                    alert("Beklenmeyen veri formatı alındı!");
+                    return;
+                }
+
+                userTableBody.innerHTML = users.map(user => `
+        <tr>
+            <td>${user.id}</td>
+            <td>${user.email}</td>
+            <td>${user.username}</td>
+            <td>${user.fileCount}</td>
+            <td>${user.role}</td>
+            <td>${new Date(user.createdOn).toLocaleDateString()}</td>
+            <td>
+                <a class="btn btn-warning btn-sm" href="javascript:void(0)" onclick="openEditModal(${user.id})">Düzenle</a>
+                <a class="btn btn-danger btn-sm" onclick="deleteUser(${user.id})">Sil</a>
+            </td>
+        </tr>
+    `).join('');
+            }
+
+           
+            function debounce(func, delay) {
+                let timer;
+                return function (...args) {
+                    clearTimeout(timer);
+                    timer = setTimeout(() => func.apply(this, args), delay);
+                };
+            }
+        });
+
+      
+    </script>
+    <script src="~/js/signalr/dist/browser/signalr.js"></script>
+}
+

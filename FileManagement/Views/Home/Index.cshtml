@@ -1,0 +1,97 @@
+﻿@model IEnumerable<FileManagement.ViewModels.FileListViewModel>
+
+@{
+    ViewData["Title"] = "Admin Paneli";
+}
+<head>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+</head>
+<container>
+<div class="row" id="fileContainer">
+    @foreach (var file in Model)
+    {
+        <div class="col-md-3 col-sm-6 mb-4 file-card" data-filename="@file.FileName">
+            <div class="folder-card">
+                <div class="folder-icon">
+                    <i class="fas fa-folder"></i>
+                </div>
+                <div class="folder-body">
+                    <h5 class="folder-title">@file.FileName</h5>
+                    <p class="folder-details">
+                        <strong>Dosya Türü:</strong> @file.FileType <br />
+                        <strong>Yükleme Tarihi:</strong> @file.UploadedOn.ToString("yyyy-MM-dd") <br />
+                        <strong>Kullanıcı:</strong> @file.UserName <br />
+                        <strong>Kategori:</strong> @file.CategoryName
+                    </p>
+                    <div class="folder-actions">
+                        <button class="btn btn-primary btn-sm download-btn" data-id="@file.Id">İndir</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+</container>
+<style>
+   
+
+    .file-card {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .folder-card {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        padding: 15px;
+        text-align: center;
+        width: 100%;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+
+    .folder-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .folder-icon {
+        font-size: 48px;
+        color: #ffcc00;
+        margin-bottom: 10px;
+    }
+
+    .folder-title {
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #333;
+    }
+
+    .folder-details {
+        font-size: 0.9rem;
+        color: #555;
+        margin-bottom: 10px;
+    }
+
+    .folder-actions {
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .folder-actions .btn {
+        width: 45%;
+    }
+
+    .folder-actions .btn-primary {
+        background-color: #007bff;
+        border-color: #007bff;
+    }
+
+    .folder-actions .btn-danger {
+        background-color: #dc3545;
+        border-color: #dc3545;
+    }
+</style>

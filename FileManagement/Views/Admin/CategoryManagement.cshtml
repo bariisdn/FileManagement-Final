@@ -1,0 +1,113 @@
+@model IEnumerable<FileManagement.ViewModels.CategoryListViewModel>
+@{
+    Layout = "_LayoutAdmin";
+}
+
+<div class="container mt-5">
+    <h2 class="mb-4">Kategori Yönetimi</h2>
+
+    <!-- Kategori Ekleme Formu -->
+    <form id="categoryForm" class="d-flex align-items-center gap-1 mt-3 mb-3">
+        <div class="form-group mb-0">
+            <input type="text" id="categoryName" name="categoryName" class="form-control" placeholder="Kategori Adı" required />
+        </div>
+        <div class="form-group mb-0">
+            <input type="text" id="categoryDescription" name="categoryDescription" class="form-control" placeholder="Açıklama" />
+        </div>
+        <button type="submit" class="btn btn-primary">Kategori Ekle</button>
+    </form>
+
+    <!-- Kategori Listesi -->
+    <div class="row" id="categoryContainer">
+        @foreach (var category in Model)
+        {
+            <div class="col-md-4 category-card" data-categoryname="@category.Name">
+                <div class="card mb-4 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">@category.Name</h5>
+                        <p class="card-text">
+                            <strong>Açıklama:</strong> @category.Description
+                        </p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button class="btn btn-warning btn-sm edit-btn" data-id="@category.Id" data-name="@category.Name" data-description="@category.Description">Düzenle</button>
+                            <button class="btn btn-danger btn-sm delete-btn" data-id="@category.Id">Sil</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // Kategori Ekleme
+        $('#categoryForm').on('submit', function (e) {
+            e.preventDefault();
+
+            const categoryName = $('#categoryName').val();
+            const categoryDescription = $('#categoryDescription').val();
+
+            $.ajax({
+                url: '/category/add',
+                type: 'POST',
+                data: { Name: categoryName, Description: categoryDescription },
+                success: function (response) {
+                    alert(response.message);
+                    location.reload();
+                },
+                error: function (xhr) {
+                    alert('Kategori eklenirken bir hata oluştu.');
+                    console.error(xhr.responseText);
+                }
+            });
+        });
+
+        // Kategori Düzenleme
+        $(document).on('click', '.edit-btn', function () {
+            const categoryId = $(this).data('id');
+            const categoryName = $(this).data('name');
+            const categoryDescription = $(this).data('description');
+
+            const newName = prompt('Yeni kategori adını girin:', categoryName);
+            const newDescription = prompt('Yeni açıklamayı girin:', categoryDescription);
+
+            if (newName) {
+                $.ajax({
+                    url: `/category/edit/${categoryId}`,
+                    type: 'POST',
+                    data: { Id: categoryId, Name: newName, Description: newDescription },
+                    success: function (response) {
+                        alert(response.message);
+                        location.reload();
+                    },
+                    error: function (xhr) {
+                        alert('Kategori düzenlenirken bir hata oluştu.');
+                        console.error(xhr.responseText);
+                    }
+                });
+            }
+        });
+
+        // Kategori Silme
+        $(document).on('click', '.delete-btn', function () {
+            const categoryId = $(this).data('id');
+
+            if (confirm('Bu kategoriyi silmek istediğinize emin misiniz?')) {
+                $.ajax({
+                    url: `/category/delete/${categoryId}`,
+                    type: 'POST',
+                    success: function (response) {
+                        alert(response.message);
+                        location.reload();
+                    },
+                    error: function (xhr) {
+                        alert('Kategori silinirken bir hata oluştu.');
+                        console.error(xhr.responseText);
+                    }
+                });
+            }
+        });
+    </script>
+}

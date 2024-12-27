@@ -1,0 +1,108 @@
+@{
+    Layout = "_LayoutAdmin";
+}
+
+<div class="container my-5">
+    <div class="text-center bg-primary text-white p-5 rounded shadow-sm">
+        <h1 class="display-4 fw-bold">İnternet Programcılığı</h1>
+        <p class="lead">Dosya Yönetim Portalı - 20211132075</p>
+        <p class="lead">Admin Paneli</p>
+        <a href="/Admin" class="btn btn-light btn-lg mt-3">Yönet</a>
+    </div>
+
+
+
+    <div class="mt-5">
+        <h2 class="text-center mb-4">Portal Özellikleri</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-folder2-open display-4 text-primary mb-3"></i>
+                        <h5 class="card-title">Dosya Yönetimi</h5>
+                        <p class="card-text">Dosya yükleme, indirme ve silme işlemleri.</p>
+                        <a href="/Admin/Files" class="btn btn-outline-primary">Keşfet</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-people display-4 text-success mb-3"></i>
+                        <h5 class="card-title">Kullanıcı Yönetimi</h5>
+                        <p class="card-text">Kullanıcıları görüntüleyin, arayın ve düzenleyin.</p>
+                        <a href="/Admin/Users" class="btn btn-outline-success">Keşfet</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-tags display-4 text-danger mb-3"></i>
+                        <h5 class="card-title">Kategori Yönetimi</h5>
+                        <p class="card-text">Dosyaları kategorilere ayırın.</p>
+                        <a href="/Admin/CategoryManagement" class="btn btn-outline-danger">Keşfet</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div id="divResult"></div>
+    </div>
+</div>
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+
+    <script>
+        // Arama Çubuğu
+        // HUB Bağlantı
+        var connectionHub = new signalR.HubConnectionBuilder()
+                .withUrl("/UserHub", signalR.HttpTransportType.WebSockets)
+                .configureLogging(signalR.LogLevel.Information)
+                .build();
+
+        // Category HUB
+        connectionHub.on("onCategoryAdd", (d) => {
+            $("#catCount").html(d);
+            $("#divResult")
+                    .show()
+                    .removeClass()
+                    .addClass("alert alert-info")
+                    .html("Kategori Eklendi")
+                    .fadeOut(5000);
+
+        });
+        connectionHub.on("onCategoryUpdate", (d) => {
+            $("#catCount").html(d);
+            $("#divResult")
+                    .show()
+                    .removeClass()
+                    .addClass("alert alert-info")
+                    .html("Kategori Güncellendi")
+                    .fadeOut(5000);
+        });
+
+        connectionHub.on("ReceiveNotification", (message) => {
+            alert(message); // Bildirimi alert ile göster
+        });
+
+
+
+        // start connection
+        function fullfilled() {
+            console.log("Bağlantı Başarılı");
+        }
+        function rejected() {
+            console.log("Bağlantı Hatalı");
+
+        }
+        connectionHub.start().then(fullfilled, rejected);
+
+    </script>
+}

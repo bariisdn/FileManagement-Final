@@ -1,0 +1,179 @@
+@model IEnumerable<FileManagement.ViewModels.FileListViewModel>
+@{
+    Layout = "_LayoutAdmin";
+}
+
+<div class="container mt-5">
+    <h2 class="mb-4">Dosya Yönetimi</h2>
+
+    <!-- Search Bar -->
+    <div class="mb-3">
+        <input type="text" id="searchBar" class="form-control" placeholder="Dosya ismine göre ara...">
+    </div>
+
+    <!-- Dosya Yükleme Formu -->
+    <form id="uploadForm" enctype="multipart/form-data" class="d-flex align-items-center gap-1 mt-3 mb-3">
+        <div class="form-group mb-0">
+            <input type="file" id="file" name="file" class="form-control" required style="width: auto;">
+        </div>
+        <div class="form-group mb-0">
+            <input type="hidden" id="userId" name="userId" class="form-control" value="@ViewBag.UserId">
+        </div>
+
+        <!-- Category Dropdown -->
+        <div class="form-group mb-0">
+            <select id="categoryId" name="categoryId" class="form-control">
+                <option value="">Kategori Seçin</option>
+                @foreach (var category in ViewBag.Categories)
+                {
+                    <option value="@category.Id">@category.Name</option>
+                }
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Dosya Yükle</button>
+    </form>
+
+    <!-- Dosya Listesi -->
+    <div class="row" id="fileContainer">
+        @foreach (var file in Model)
+        {
+            <div class="col-md-4 file-card" data-filename="@file.FileName">
+                <div class="card mb-4 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">@file.FileName</h5>
+                        <p class="card-text">
+                            <strong>Dosya Türü:</strong> @file.FileType <br />
+                            <strong>Yükleme Tarihi:</strong> @file.UploadedOn.ToString("yyyy-MM-dd") <br />
+                            <strong>Kullanıcı:</strong> @file.UserName <br />
+                            <strong>Kategori:</strong> @file.CategoryName
+                        </p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button class="btn btn-primary btn-sm download-btn" data-id="@file.Id">İndir</button>
+                            <button class="btn btn-danger btn-sm delete-btn" data-id="@file.Id">Sil</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+
+    <script>
+        // Arama Çubuğu
+     
+      
+        $('#searchBar').on('input', function () {
+            const searchValue = $(this).val().toLowerCase();
+            $('.file-card').each(function () {
+                const fileName = $(this).data('filename').toLowerCase();
+                $(this).toggle(fileName.includes(searchValue));
+            });
+        });
+
+        // Dosya Yükleme
+        $('#uploadForm').on('submit', function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+
+            $.ajax({
+                url: '/Admin/UploadFile',
+                type: 'POST',
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function (response) {
+                    connection.invoke("SendFileNotification", response.filename, @ViewBag.UserId)
+                        .catch(err => console.error(err));
+
+                    alert(response.message);
+                    location.reload();
+                },
+
+                error: function (xhr) {
+                    alert('Dosya yüklenirken bir hata oluştu.');
+                    console.error(xhr.responseText);
+                }
+            });
+        });
+       
+      
+        // Dosya İndirme
+        $(document).on('click', '.download-btn', function () {
+            const fileId = $(this).data('id');
+
+            $.ajax({
+                url: `/File/Download/${fileId}`,
+                type: 'GET',
+                xhrFields: { responseType: 'blob' },
+                success: function (blob) {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = ''; // Sunucudan gelen dosya adı kullanılacak
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                },
+                error: function () {
+                    alert('Dosya indirirken bir hata oluştu.');
+                }
+            });
+        });
+
+        // Dosya Silme
+        $(document).on('click', '.delete-btn', function () {
+            const fileId = $(this).data('id');
+            const userId = $('#userId').val(); // Assuming there's a hidden input field with the user ID
+
+            if (confirm('Bu dosyayı silmek istediğinize emin misiniz?')) {
+                $.ajax({
+                    url: `/File/Delete/${fileId}`,
+                    type: 'DELETE',
+                    data: JSON.stringify({ userId: userId }), // Send user ID in the request body
+                    contentType: 'application/json', // Set content type to JSON
+                    success: function (response) {
+                        alert(response.message);
+                        location.reload(); // Optional if you want to reload
+                    },
+                    error: function (xhr) {
+                        alert('Dosya silinirken bir hata oluştu.');
+                        console.error(xhr.responseText);
+                    }
+                });
+            }
+});
+        var connectionHub = new signalR.HubConnectionBuilder()
+            .withUrl("/userHub", signalR.HttpTransportType.WebSockets)
+            .configureLogging(signalR.LogLevel.Information)
+            .build();
+        connectionHub.on("SendFileNotification", (fileName, uploadedByUserId) => {
+            if (uploadedByUserId !== @ViewBag.UserId) {
+                toastr.info(`${uploadedByUserId} ID'li kullanıcı ${fileName} adında bir dosya yükledi.`);
+            }
+        });
+        connectionHub.on("FileDeleted", (fileName, deletedByUserId) => {
+            if (deletedByUserId !== @ViewBag.UserId) {
+                toastr.warning(`${deletedByUserId} ID'li kullanıcı ${fileName} adında bir dosyayı sildi.`);
+            } else {
+                toastr.info(`${fileName} dosyası başarıyla silindi.`);
+            }
+});
+        // start connection
+        function fullfilled() {
+            console.log("Bağlantı Başarılı");
+        }
+        function rejected() {
+            console.log("Bağlantı Hatalı");
+
+        }
+        connectionHub.start().then(fullfilled, rejected);
+
+    </script>
+}
